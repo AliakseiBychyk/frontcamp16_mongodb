@@ -1,0 +1,141 @@
+Here I have attached a dump of MongoDB database frontcamp16 with three collections: news, posts, grades.
+The 'news' collection is a sample of data for news application, I have created it while I got the first 
+assignment on FrontCamp16/10 to retrieve the json data from news.api
+
+The whole database frontcamp16 is placed on MLab by link: 
+% mongo ds147537.mlab.com:47537/frontcamp16 -u <dbuser> -p <dbpassword>
+(I do not know is there any reason to share my creds to MLab?)   
+
+The second collection 'posts' I have created as my objective in assingment p.2 of Introduction to MongoDB v2
+In order to fill the db collection with documents I have wrote an app that runs on localhost and insert the 
+documents into MLab.
+
+The schema design of post collection is as an attached sample: 
+
+rs-ds147537:PRIMARY> db.posts.findOne()
+{
+        "_id" : ObjectId("584a9642d154eb41140ec6bc"),
+        "body" : "Hola Mundo espanola",
+        "permalink" : "Hola_Mundo",
+        "author" : "AleksByczyk",
+        "tags" : [
+                "blog",
+                "first",
+                "mundo"
+        ],
+        "comments" : [
+                {
+                        "body" : "tres bien!",
+                        "num_likes" : 2,
+                        "email" : "aleks@mongo.com",
+                        "author" : "aleks"
+                }
+        ],
+        "date" : ISODate("2016-12-09T11:32:18.315Z"),
+        "title" : "Hola Mundo"
+}
+
+
+
+
+For the better performance while requesting the data I have created the following indexes under the 'author'
+and 'title' fields:
+
+rs-ds147537:PRIMARY> db.posts.createIndex({'author':1})
+{
+        "createdCollectionAutomatically" : false,
+        "numIndexesBefore" : 1,
+        "numIndexesAfter" : 2,
+        "ok" : 1
+}
+rs-ds147537:PRIMARY> db.posts.createIndex({'title':1})
+{
+        "createdCollectionAutomatically" : false,
+        "numIndexesBefore" : 2,
+        "numIndexesAfter" : 3,
+        "ok" : 1
+}
+rs-ds147537:PRIMARY> db.posts.getIndexes()
+[
+        {
+                "v" : 1,
+                "key" : {
+                        "_id" : 1
+                },
+                "name" : "_id_",
+                "ns" : "frontcamp16.posts"
+        },
+        {
+                "v" : 1,
+                "key" : {
+                        "author" : 1
+                },
+                "name" : "author_1",
+                "ns" : "frontcamp16.posts"
+        },
+        {
+                "v" : 1,
+                "key" : {
+                        "title" : 1
+                },
+                "name" : "title_1",
+                "ns" : "frontcamp16.posts"
+        }
+]
+
+
+Here is the aggregation pipeline to solve the homework assignment p.4 Introduction to MongoDB v2
+The result of this query is an array of documents sorted by the average grade in every class,
+for each student, for every assessment excluding quizes (only exams and homeworks).
+As it's shown below the best result has class with class_id:1, with the average score of 64.506423 
+
+rs-ds147537:PRIMARY> db.grades.aggregate([ 
+{$unwind: "$scores"},
+{$match: {"scores.type": {$ne: "quiz"}}}, 
+{$group: { 
+	_id: {"student_id": "$student_id", "class_id": "$class_id"},
+	avg_student: {$avg: "$scores.score"}
+}}, 
+{$group: { 
+	_id: {"class_id": "$_id.class_id"}, 
+	avg_class: {$avg: "$avg_student"} 
+}}, 
+{$sort: {"avg_class": -1}} 
+])
+
+{ "_id" : { "class_id" : 1 }, "avg_class" : 64.50642324269175 }
+{ "_id" : { "class_id" : 5 }, "avg_class" : 58.08448767613548 }
+{ "_id" : { "class_id" : 20 }, "avg_class" : 57.6309834548989 }
+{ "_id" : { "class_id" : 26 }, "avg_class" : 56.06918278769095 }
+{ "_id" : { "class_id" : 9 }, "avg_class" : 55.56861693456625 }
+{ "_id" : { "class_id" : 14 }, "avg_class" : 55.36017373346245 }
+{ "_id" : { "class_id" : 24 }, "avg_class" : 53.6103459780166 }
+{ "_id" : { "class_id" : 16 }, "avg_class" : 53.45833539362423 }
+
+
+In order to create the replica set of the database on my local machine I used the following procedure:
+
+First I have created three folders in the 'C:/data' folder: rs1, rs2, rs3
+Then I run following js code:
+
+config = { _id: 'frontcamp16',
+               members: [
+                { _id: 0, host: "local:27017"},
+                { _id: 1, host: "local:27018"},
+                { _id: 2, host: "local:27019"} ] }
+rs.initiate(config);
+rs.status() 
+
+Then I run in three different cmd panels following commands:
+
+mongod --replSet frontcamp16 --logpath "1.log" --dbpath C:/data/rs1 --port 27017 --oplogSize 64
+mongod --replSet frontcamp16 --logpath "2.log" --dbpath C:/data/rs2 --port 27018 --oplogSize 64
+mongod --replSet frontcamp16 --logpath "3.log" --dbpath C:/data/rs3 --port 27019 --oplogSize 64 
+
+
+
+
+
+
+
+
